@@ -1,0 +1,7 @@
+bin/
+plugins/
+.git/
+README.md
+LICENCE.md
+Dockerfile
+.dockerignore
