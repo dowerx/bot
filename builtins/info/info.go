@@ -4,10 +4,11 @@ package main
 
 import (
 	"bot/plugin"
-	"log/slog"
+	"fmt"
 	"strings"
 
-	"github.com/bwmarrin/discordgo"
+	"github.com/disgoorg/disgo/discord"
+	"github.com/disgoorg/disgo/handler"
 )
 
 type InfoPlugin struct {
@@ -26,37 +27,30 @@ func Entry() (plugin.Plugin, error) {
 	return &InfoPlugin{}, nil
 }
 
-// Register implements [plugin.Plugin].
-func (p *InfoPlugin) Register(helpers plugin.PluginHelpers) []*discordgo.ApplicationCommand {
+// Commands implements [plugin.Plugin].
+func (p *InfoPlugin) Commands(helpers plugin.PluginHelpers) []plugin.SlashCommand {
 	p.helpers = helpers
-	return []*discordgo.ApplicationCommand{
+	return []plugin.SlashCommand{
 		{
-			Name:        "info",
-			Description: "Prints some info about the bot.",
-			Options: []*discordgo.ApplicationCommandOption{
-				{
-					Type:        discordgo.ApplicationCommandOptionString,
-					Name:        "area",
-					Description: "Area you are interested in.",
-					Required:    true,
+			Definition: discord.SlashCommandCreate{
+				Name:        "info",
+				Description: "Prints some info about the bot.",
+				Options: []discord.ApplicationCommandOption{
+					discord.ApplicationCommandOptionString{
+						Name:        "area",
+						Description: "Area you are interested in.",
+						Required:    true,
+					},
 				},
 			},
+			Handler: p.info,
 		},
 	}
 }
 
-func (p *InfoPlugin) Handle(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	if i.Type != discordgo.InteractionApplicationCommand {
-		return
-	}
-
-	data := i.ApplicationCommandData()
-	if data.Name != "info" {
-		return
-	}
-
+func (p *InfoPlugin) info(data discord.SlashCommandInteractionData, e *handler.CommandEvent) error {
 	var message string
-	area := data.Options[0].StringValue()
+	area := data.String("area")
 	switch area {
 	case "plugins":
 		plugins := p.helpers.Plugins()
@@ -71,14 +65,12 @@ func (p *InfoPlugin) Handle(s *discordgo.Session, i *discordgo.InteractionCreate
 		message = "unknown command"
 	}
 
-	if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: message,
-		},
+	if err := e.CreateMessage(discord.MessageCreate{
+		Content: message,
 	}); err != nil {
-		slog.Error("failed to send echo reply", "error", err.Error())
+		return fmt.Errorf("failed to send info reply: %w", err)
 	}
+	return nil
 }
 
 func main() {}

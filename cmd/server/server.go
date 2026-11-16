@@ -25,17 +25,15 @@ func run() int {
 		return 1
 	}
 
-	slog.Info("connecting to Discord", "guildID", cfg.GuildID)
+	slog.Info("initializing Discord client", "guildID", cfg.GuildID)
 	bot := bot.Bot{}
-	if err := bot.Connect(cfg.Token, cfg.GuildID); err != nil {
-		slog.Error("failed to connect to Discord",
+	if err := bot.Init(cfg.Token, cfg.GuildID); err != nil {
+		slog.Error("failed to initialize Discord client",
 			"error", err.Error(),
 		)
 		return 1
 	}
 	defer bot.Close()
-
-	bot.Info()
 
 	plugins, err := plugin.LoadDir(cfg.PluginDir)
 	if err != nil {
@@ -51,6 +49,15 @@ func run() int {
 		)
 		return 1
 	}
+
+	if err := bot.Start(); err != nil {
+		slog.Error("failed to open gateway",
+			"error", err.Error(),
+		)
+		return 1
+	}
+
+	bot.Info()
 
 	bot.Run()
 

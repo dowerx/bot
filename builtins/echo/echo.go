@@ -4,9 +4,10 @@ package main
 
 import (
 	"bot/plugin"
-	"log/slog"
+	"fmt"
 
-	"github.com/bwmarrin/discordgo"
+	"github.com/disgoorg/disgo/discord"
+	"github.com/disgoorg/disgo/handler"
 )
 
 type EchoPlugin struct {
@@ -24,42 +25,31 @@ func Entry() (plugin.Plugin, error) {
 	return &EchoPlugin{}, nil
 }
 
-func (p *EchoPlugin) Register(plugin.PluginHelpers) []*discordgo.ApplicationCommand {
-	return []*discordgo.ApplicationCommand{
+func (p *EchoPlugin) Commands(_ plugin.PluginHelpers) []plugin.SlashCommand {
+	return []plugin.SlashCommand{
 		{
-			Name:        "echo",
-			Description: "Repeates a message.",
-			Options: []*discordgo.ApplicationCommandOption{
-				{
-					Type:        discordgo.ApplicationCommandOptionString,
-					Name:        "message",
-					Description: "Message to repeat.",
-					Required:    true,
+			Definition: discord.SlashCommandCreate{
+				Name:        "echo",
+				Description: "Repeates a message.",
+				Options: []discord.ApplicationCommandOption{
+					discord.ApplicationCommandOptionString{
+						Name:        "message",
+						Description: "Message to repeat.",
+						Required:    true,
+					},
 				},
 			},
+			Handler: func(data discord.SlashCommandInteractionData, e *handler.CommandEvent) error {
+				message := data.String("message")
+
+				if err := e.CreateMessage(discord.MessageCreate{
+					Content: message,
+				}); err != nil {
+					return fmt.Errorf("failed to send echo reply: %w", err)
+				}
+				return nil
+			},
 		},
-	}
-}
-
-func (p *EchoPlugin) Handle(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	if i.Type != discordgo.InteractionApplicationCommand {
-		return
-	}
-
-	data := i.ApplicationCommandData()
-	if data.Name != "echo" {
-		return
-	}
-
-	message := data.Options[0].StringValue()
-
-	if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: message,
-		},
-	}); err != nil {
-		slog.Error("failed to send echo reply", "error", err.Error())
 	}
 }
 

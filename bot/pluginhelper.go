@@ -2,8 +2,6 @@ package bot
 
 import (
 	"bot/plugin"
-
-	"github.com/bwmarrin/discordgo"
 )
 
 // This implementation is passed to plugins to expose helper functions.
@@ -17,8 +15,4 @@ func (h *PluginHelpers) Plugins() map[string]*plugin.Plugin {
 		plugins[k] = &p.plugin
 	}
 	return plugins
-}
-
-func (h *PluginHelpers) Session() *discordgo.Session {
-	return h.bot.session
 }

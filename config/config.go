@@ -31,7 +31,7 @@ type Config struct {
 // into a Config struct. Throws an error if validation fails.
 func Parse() (Config, error) {
 	cfg := Config{
-		Token:     envOrDefault(ENV_TOKEN, ""),    // must be prefixed with 'Bot ' or 'Bearer '
+		Token:     envOrDefault(ENV_TOKEN, ""),    // raw bot token, without the 'Bot ' prefix
 		GuildID:   envOrDefault(ENV_GUILD_ID, ""), // empty guild id means all guilds
 		PluginDir: envOrDefault(ENV_PLUGIN_DIR, DEFAULT_PLUGIN_DIR),
 	}

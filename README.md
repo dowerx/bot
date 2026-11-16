@@ -6,13 +6,13 @@ runtime.
 
 ## How it works
 
-- `cmd/server` — entry point. Parses config, connects to Discord, loads
+- `cmd/server` — entry point. Parses config, creates the DisGo client, loads
   plugins from the plugin directory, registers their handlers and slash
-  commands, then blocks until `SIGINT`/`SIGTERM`.
-- `bot/` — wraps a `discordgo` session; registers plugin handlers and
-  application commands.
+  commands, opens the gateway, then blocks until `SIGINT`/`SIGTERM`.
+- `bot/` — wraps a DisGo client and its interaction router; registers plugin
+  routes and synchronizes application commands.
 - `plugin/` — plugin interface and loading. Plugins are `.so` files built
-  with `-buildmode=plugin`; each must export a `Register() (Plugin, error)`
+  with `-buildmode=plugin`; each must export a `Entry() (Plugin, error)`
   function. Plugin directories are scanned recursively.
 - `builtins/` — plugins that ship with the repo (e.g. `echo`).
 - `config/` — configuration from environment variables.
@@ -23,7 +23,7 @@ Environment variables:
 
 | Variable         | Required | Default      | Description                                      |
 | ---------------- | -------- | ------------ | ------------------------------------------------ |
-| `BOT_TOKEN`      | yes      | —            | Discord token, prefixed with `Bot ` or `Bearer ` |
+| `BOT_TOKEN`      | yes      | —            | Discord bot token, without the `Bot ` prefix     |
 | `BOT_GUILD_ID`   | no       | —            | Guild to register commands in; empty = all guilds |
 | `BOT_PLUGIN_DIR` | no       | `./plugins`  | Directory to load `.so` plugins from             |
 
@@ -40,7 +40,7 @@ Each subdirectory of `builtins/` is built into a matching `.so` in
 ## Running
 
 ```sh
-export BOT_TOKEN="Bot <token>"
+export BOT_TOKEN="<token>"
 make run      # builds everything, then starts bin/server
 ```
 
@@ -56,7 +56,8 @@ package main
 import (
 	"bot/plugin"
 
-	"github.com/bwmarrin/discordgo"
+	"github.com/disgoorg/disgo/discord"
+	"github.com/disgoorg/disgo/handler"
 )
 
 type MyPlugin struct{}
@@ -69,22 +70,35 @@ func (p *MyPlugin) Metadata() plugin.PluginMetadata {
 	}
 }
 
-func (p *MyPlugin) Commands() []*discordgo.ApplicationCommand {
-	return []*discordgo.ApplicationCommand{
-		{Name: "hello", Description: "Says hello."},
+// Commands returns the plugin's slash commands. Each command pairs its
+// application command definition with the handler that serves it.
+func (p *MyPlugin) Commands(helpers plugin.PluginHelpers) []plugin.SlashCommand {
+	return []plugin.SlashCommand{
+		{
+			Definition: discord.SlashCommandCreate{Name: "hello", Description: "Says hello."},
+			Handler: func(data discord.SlashCommandInteractionData, e *handler.CommandEvent) error {
+				return e.CreateMessage(discord.MessageCreate{Content: "Hello!"})
+			},
+		},
 	}
 }
 
-func (p *MyPlugin) Handle(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	// handle interactions
-}
-
-func Register() (plugin.Plugin, error) {
+func Entry() (plugin.Plugin, error) {
 	return &MyPlugin{}, nil
 }
 
 func main() {}
 ```
+
+The bot registers every returned command with Discord (in `BOT_GUILD_ID`
+if set, otherwise globally) and registers its handler on the DisGo
+interaction router. The route path is derived from the command name
+(`/hello` in this example), so there is no separate prefix to maintain.
+
+Subcommands are part of the command definition's option tree. A handler
+registered for the top-level command also receives its subcommand
+interactions; dispatch on `data.SubCommandName` (and
+`data.SubCommandGroupName`) if needed.
 
 Build it with `go build -buildmode=plugin -o plugins/myplugin.so ./builtins/myplugin`
 (or just run `make`) and place the `.so` under the plugin directory.

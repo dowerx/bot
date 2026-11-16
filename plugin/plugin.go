@@ -7,7 +7,8 @@ import (
 	"path/filepath"
 	"plugin"
 
-	"github.com/bwmarrin/discordgo"
+	"github.com/disgoorg/disgo/discord"
+	"github.com/disgoorg/disgo/handler"
 )
 
 const (
@@ -22,17 +23,25 @@ type PluginMetadata struct {
 
 // The bot passes an implementation of this interface to every plugin.
 // They access information and helper functions through this.
+// Handlers can access the Discord client directly via event.Client().
 type PluginHelpers interface {
 	Plugins() map[string]*Plugin
-	Session() *discordgo.Session
 }
 
 // Plugins implement this interface.
 // Every plugin must have an Entry function that returns a struct implementing this interface.
 type Plugin interface {
 	Metadata() PluginMetadata
-	Register(helpers PluginHelpers) []*discordgo.ApplicationCommand
-	Handle(s *discordgo.Session, i *discordgo.InteractionCreate)
+	Commands(helpers PluginHelpers) []SlashCommand
+}
+
+// SlashCommand couples a slash command definition with its handler.
+// The route path is derived from Definition.Name. Subcommands are part of the
+// definition's option tree; the top-level route also receives subcommand
+// interactions, so a single handler can dispatch them using the interaction data.
+type SlashCommand struct {
+	Definition discord.SlashCommandCreate
+	Handler    handler.SlashCommandHandler
 }
 
 // Load a plugin from a shared library file.
